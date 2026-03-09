@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+CONFIG_PATH="/usr/share/nginx/html/config.js"
+
+cat > "$CONFIG_PATH" <<EOF
+window.__CONFIG__ = {
+  API_BASE_URL: "${API_BASE_URL:-/api}",
+  AUTH_PROVIDER: "${AUTH_PROVIDER:-cognito}",
+  COGNITO_POOL_ID: "${COGNITO_POOL_ID:-}",
+  COGNITO_CLIENT_ID: "${COGNITO_CLIENT_ID:-}",
+  COGNITO_DOMAIN: "${COGNITO_DOMAIN:-}",
+  COGNITO_REGION: "${COGNITO_REGION:-us-east-1}",
+  OIDC_AUTHORITY: "${OIDC_AUTHORITY:-}",
+  OIDC_CLIENT_ID: "${OIDC_CLIENT_ID:-}",
+  OIDC_REDIRECT_URI: "${OIDC_REDIRECT_URI:-}",
+  OIDC_POST_LOGOUT_REDIRECT_URI: "${OIDC_POST_LOGOUT_REDIRECT_URI:-}",
+  APP_TITLE: "${APP_TITLE:-Admin Mission Control}",
+};
+EOF
+
+echo "Runtime config written to $CONFIG_PATH"

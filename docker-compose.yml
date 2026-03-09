@@ -1,0 +1,19 @@
+services:
+  ui:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - API_UPSTREAM=http://host.docker.internal:3001
+      - AUTH_PROVIDER=cognito
+      - COGNITO_POOL_ID=
+      - COGNITO_CLIENT_ID=
+      - COGNITO_DOMAIN=
+      - COGNITO_REGION=us-east-1
+      - OIDC_AUTHORITY=
+      - OIDC_CLIENT_ID=
+      - OIDC_REDIRECT_URI=
+      - OIDC_POST_LOGOUT_REDIRECT_URI=
+      - APP_TITLE=Admin Mission Control
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
