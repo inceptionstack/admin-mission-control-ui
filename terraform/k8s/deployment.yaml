@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-mc
+  labels:
+    app: admin-mc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: admin-mc
+  template:
+    metadata:
+      labels:
+        app: admin-mc
+    spec:
+      containers:
+        - name: admin-mc
+          image: ghcr.io/inceptionstack/admin-mission-control-ui:latest
+          ports:
+            - containerPort: 80
+          env:
+            - name: API_BASE_URL
+              value: "/api"
+            - name: AUTH_PROVIDER
+              value: "cognito"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-mc
+spec:
+  selector:
+    app: admin-mc
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: admin-mc
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: admin-mc.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-mc
+                port:
+                  number: 80

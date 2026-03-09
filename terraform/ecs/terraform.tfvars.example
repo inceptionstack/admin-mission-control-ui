@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in values
+aws_region    = "us-east-1"
+vpc_id        = "vpc-xxxxxxxxx"
+subnet_ids    = ["subnet-aaa", "subnet-bbb", "subnet-ccc"]
+image_tag     = "latest"
+desired_count = 1
+
+env_vars = {
+  API_BASE_URL     = "/api"
+  AUTH_PROVIDER    = "cognito"
+  COGNITO_DOMAIN   = "your-cognito-domain"
+  COGNITO_CLIENT_ID = "your-client-id"
+  COGNITO_REGION   = "us-east-1"
+}
