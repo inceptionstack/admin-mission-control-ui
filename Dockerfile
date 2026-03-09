@@ -26,7 +26,6 @@ COPY docker/entrypoint.sh /docker/entrypoint.sh
 RUN chmod +x /docker/generate-config.sh /docker/entrypoint.sh
 
 # Default env vars
-ENV API_UPSTREAM=http://host.docker.internal:3001
 ENV AUTH_PROVIDER=cognito
 
 EXPOSE 80
