@@ -1,3 +1,4 @@
+import { config } from "../config";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Rocket,
@@ -376,6 +377,9 @@ export function Layout() {
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
+        </div>
+        <div className="px-4 py-2 border-t border-border/50">
+          <p className="text-[10px] text-muted-foreground/50 truncate" title={`API: ${config.apiBaseUrl}`}>API: {config.apiBaseUrl}</p>
         </div>
       </aside>
 
