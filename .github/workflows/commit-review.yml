@@ -40,7 +40,7 @@ jobs:
           DIFF=$(git diff HEAD~1)
           echo "Reviewing commit $SHORT_SHA..."
 
-          REVIEW=$(claude --print --max-turns 5 --model us.anthropic.claude-sonnet-4-6 \
+          REVIEW=$(claude --print --max-turns 5 --model ${{ vars.REVIEW_CLAUDE_MODEL || 'us.anthropic.claude-sonnet-4-6' }} \
             "Review this git diff for security vulnerabilities, bugs, and anti-patterns. Be concise. If no issues, say 'No issues found.' Do NOT suggest creating issues or PRs — just give the review.
 
           Commit: $SHORT_SHA
