@@ -115,11 +115,13 @@ export interface Signup {
   firstName?: string;
   lastName?: string;
   email: string;
+  alias?: string;
   role?: string;
   team?: string;
   teamSize?: string;
   accountAccess?: string;
   accountAccessType?: string;
+  accountNumber?: string;
   useCases?: string[];
   useCaseOther?: string;
   orgId?: string;

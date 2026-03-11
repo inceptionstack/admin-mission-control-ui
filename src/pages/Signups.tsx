@@ -6,8 +6,6 @@ import {
   UserPlus,
   Search,
   Loader2,
-  ChevronDown,
-  ChevronRight,
   Mail,
   Building2,
   Users,
@@ -18,8 +16,10 @@ import {
   ExternalLink,
   Trash2,
   Copy,
-  ClipboardCheck,
   Download,
+  MessageSquare,
+  Briefcase,
+  Hash,
 } from "lucide-react";
 
 const STATUS_CONFIG: Record<SignupStatus, { color: string; bg: string; border: string; dot: string }> = {
@@ -32,17 +32,14 @@ const STATUS_CONFIG: Record<SignupStatus, { color: string; bg: string; border: s
 
 const ALL_STATUSES: SignupStatus[] = ["new", "contacted", "approved", "rejected", "ignored"];
 
-function timeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(isoDate).toLocaleDateString();
-}
+const USE_CASE_LABELS: Record<string, string> = {
+  prototyping: "Rapid prototyping / PoC",
+  demos: "Customer demos & workshops",
+  tooling: "Internal tooling",
+  learning: "Learning & experimentation",
+  enablement: "Team enablement",
+  other: "Other",
+};
 
 const USE_CASE_COLORS = [
   "bg-violet-500/15 text-violet-300 border-violet-500/20",
@@ -52,10 +49,24 @@ const USE_CASE_COLORS = [
   "bg-orange-500/15 text-orange-300 border-orange-500/20",
 ];
 
+function formatDate(isoDate: string): string {
+  const d = new Date(isoDate);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined });
+}
+
 function StatusBadge({ status }: { status: SignupStatus }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new;
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${cfg.bg} ${cfg.color} border ${cfg.border}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {status}
     </span>
@@ -117,18 +128,6 @@ function ApproveDialog({ signup, conflict, onConfirm, onCancel, isApproving }: {
               </div>
             )}
           </div>
-          {signup.useCases && signup.useCases.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Use Cases</p>
-              <div className="flex flex-wrap gap-1">
-                {signup.useCases.map((uc, i) => (
-                  <span key={uc} className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${USE_CASE_COLORS[i % USE_CASE_COLORS.length]}`}>
-                    {uc}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
           <button onClick={onCancel} disabled={isApproving} className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50">
@@ -148,10 +147,8 @@ function ApproveDialog({ signup, conflict, onConfirm, onCancel, isApproving }: {
   );
 }
 
-function SignupRow({ signup, isExpanded, onToggle, onStatusChange, isUpdating, onApprove, onDelete, onTemplateApprove, conflict }: {
+function SignupCard({ signup, onStatusChange, isUpdating, onApprove, onDelete, onTemplateApprove, conflict }: {
   signup: Signup;
-  isExpanded: boolean;
-  onToggle: () => void;
   onStatusChange: (id: string, status: SignupStatus) => void;
   isUpdating: boolean;
   onApprove: (signup: Signup) => void;
@@ -160,199 +157,201 @@ function SignupRow({ signup, isExpanded, onToggle, onStatusChange, isUpdating, o
   conflict: Environment | undefined;
 }) {
   const fullName = signup.fullName || [signup.firstName, signup.lastName].filter(Boolean).join(" ") || "—";
+  const alias = signup.alias || signup.email?.split("@")[0] || "";
+  const slackUrl = alias ? `https://amazon.enterprise.slack.com/team/${alias}` : null;
 
   return (
-    <>
-      <tr
-        onClick={onToggle}
-        className="border-b border-border/50 hover:bg-accent/30 cursor-pointer transition-colors"
-      >
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-2">
-            {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
-            <span className="text-sm font-medium text-foreground">{fullName}</span>
+    <div className="bg-card border border-border rounded-xl p-5 hover:border-border/80 transition-colors">
+      {/* Top row: name + status + time */}
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-full flex items-center justify-center shrink-0">
+            <span className="text-sm font-bold text-primary">{fullName.charAt(0).toUpperCase()}</span>
           </div>
-        </td>
-        <td className="px-4 py-3">
-          <span className="text-sm text-muted-foreground">{signup.email}</span>
-        </td>
-        <td className="px-4 py-3">
-          <span className="text-sm text-muted-foreground">{signup.role || "—"}</span>
-        </td>
-        <td className="px-4 py-3">
-          <span className="text-sm text-muted-foreground">{signup.team || "—"}</span>
-        </td>
-        <td className="px-4 py-3">
-          {signup.accountAccess ? (
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-500/15 text-zinc-300 border border-zinc-500/20">
-              {signup.accountAccess || signup.accountAccessType}
-            </span>
-          ) : "—"}
-        </td>
-        <td className="px-4 py-3">
-          <div className="flex flex-wrap gap-1">
-            {(signup.useCases || []).map((uc, i) => (
-              <span key={uc} className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${USE_CASE_COLORS[i % USE_CASE_COLORS.length]}`}>
-                {uc}
-              </span>
-            ))}
-            {(!signup.useCases || signup.useCases.length === 0) && <span className="text-xs text-muted-foreground">—</span>}
-          </div>
-        </td>
-        <td className="px-4 py-3">
-          <span className="text-sm text-muted-foreground">{signup.teamSize || "—"}</span>
-        </td>
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-1.5">
-            <StatusBadge status={signup.status} />
-            {conflict && ["new", "contacted"].includes(signup.status) && (
-              <span title={`Has environment: ${conflict.accountName}`} className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                <AlertTriangle className="w-3 h-3" />
-                Has environment
-              </span>
-            )}
-            {signup.status === "approved" && signup.accountId && (
-              <a href={`/env/${signup.accountId}`} className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors" onClick={(e) => e.stopPropagation()}>
-                <ExternalLink className="w-3 h-3" />
-                {signup.accountId}
-              </a>
-            )}
-          </div>
-        </td>
-        <td className="px-4 py-3">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(signup.createdAt)}</span>
-        </td>
-        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={signup.status}
-              onChange={(e) => {
-                const newStatus = e.target.value as SignupStatus;
-                if (newStatus === "approved") {
-                  onApprove(signup);
-                  // Reset dropdown to current status since approve is handled by modal
-                  e.target.value = signup.status;
-                } else {
-                  onStatusChange(signup.signupId, newStatus);
-                }
-              }}
-              disabled={isUpdating}
-              className="bg-zinc-800 border border-border text-xs text-foreground rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
-            >
-              {ALL_STATUSES.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            {["new", "contacted"].includes(signup.status) && (
-                <button
-                  onClick={() => onApprove(signup)}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/30 transition-colors disabled:opacity-50"
-                  title="Approve & provision new environment"
-                >
-                  <CheckCircle className="w-3 h-3" />
-                  Provision
-                </button>
-            )}
-            <button
-              onClick={() => onTemplateApprove(signup.signupId)}
-              disabled={isUpdating}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-600/20 text-blue-400 border border-blue-500/20 hover:bg-blue-600/30 transition-colors disabled:opacity-50"
-              title="Generate CloudFormation template link"
-            >
-              <Download className="w-3 h-3" />
-              Template
-            </button>
-            <button
-              onClick={() => { if (confirm(`Delete signup from ${signup.email}?`)) onDelete(signup.signupId); }}
-              disabled={isUpdating}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-red-600/20 text-red-400 border border-red-500/20 hover:bg-red-600/30 transition-colors disabled:opacity-50"
-              title="Delete this signup"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-        </td>
-      </tr>
-      {isExpanded && (
-        <tr className="border-b border-border/50 bg-accent/20">
-          <td colSpan={10} className="px-4 py-4">
-            <div className="ml-6 grid grid-cols-2 gap-4 text-sm">
-              {signup.organization && (
-                <div className="flex items-start gap-2">
-                  <Building2 className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Organization</p>
-                    <p className="text-foreground">{signup.organization}</p>
-                  </div>
-                </div>
-              )}
-              {signup.orgId && (
-                <div className="flex items-start gap-2">
-                  <Building2 className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Org ID</p>
-                    <p className="text-foreground font-mono text-xs">{signup.orgId}</p>
-                  </div>
-                </div>
-              )}
-              {signup.useCaseOther && (
-                <div className="flex items-start gap-2">
-                  <Users className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Use Case (Other)</p>
-                    <p className="text-foreground">{signup.useCaseOther}</p>
-                  </div>
-                </div>
-              )}
-              {signup.notes && (
-                <div className="flex items-start gap-2">
-                  <Mail className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Notes</p>
-                    <p className="text-foreground">{signup.notes}</p>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-start gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Submitted</p>
-                  <p className="text-foreground">{new Date(signup.createdAt).toLocaleString()}</p>
-                </div>
-              </div>
-              {signup.updatedAt && (
-                <div className="flex items-start gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Last Updated</p>
-                    <p className="text-foreground">{new Date(signup.updatedAt).toLocaleString()}</p>
-                  </div>
-                </div>
-              )}
-              {signup.status === "approved" && signup.accountId && (
-                <div className="flex items-start gap-2">
-                  <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Environment</p>
-                    <a href={`/env/${signup.accountId}`} className="text-primary hover:underline font-mono text-xs">
-                      {signup.accountId}
-                    </a>
-                  </div>
-                </div>
+          <div className="min-w-0">
+            <h3 className="text-base font-semibold text-foreground truncate">{fullName}</h3>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Mail className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{signup.email}</span>
+              {slackUrl && (
+                <a href={slackUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline shrink-0">
+                  @{alias}
+                </a>
               )}
             </div>
-          </td>
-        </tr>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge status={signup.status} />
+          {conflict && ["new", "contacted"].includes(signup.status) && (
+            <span title={`Has environment: ${conflict.accountName}`} className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/20">
+              <AlertTriangle className="w-3 h-3" />
+              Has env
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Info grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        {signup.role && (
+          <div className="flex items-start gap-2">
+            <Briefcase className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Role</p>
+              <p className="text-sm text-foreground truncate">{signup.role}</p>
+            </div>
+          </div>
+        )}
+        {signup.team && (
+          <div className="flex items-start gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Team</p>
+              <p className="text-sm text-foreground truncate">{signup.team}</p>
+            </div>
+          </div>
+        )}
+        {signup.teamSize && (
+          <div className="flex items-start gap-2">
+            <Users className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Team Size</p>
+              <p className="text-sm text-foreground">{signup.teamSize}</p>
+            </div>
+          </div>
+        )}
+        {(signup.accountAccess || signup.accountAccessType) && (
+          <div className="flex items-start gap-2">
+            <Hash className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Access</p>
+              <p className="text-sm text-foreground">{signup.accountAccess || signup.accountAccessType}</p>
+            </div>
+          </div>
+        )}
+        {signup.accountNumber && (
+          <div className="flex items-start gap-2">
+            <Hash className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">AWS Account</p>
+              <p className="text-sm text-foreground font-mono">{signup.accountNumber}</p>
+            </div>
+          </div>
+        )}
+        <div className="flex items-start gap-2">
+          <Clock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Submitted</p>
+            <p className="text-sm text-foreground" title={new Date(signup.createdAt).toLocaleString()}>{formatDate(signup.createdAt)}</p>
+          </div>
+        </div>
+        {signup.status === "approved" && signup.accountId && (
+          <div className="flex items-start gap-2">
+            <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Environment</p>
+              <a href={`/env/${signup.accountId}`} className="text-sm text-primary hover:underline font-mono">{signup.accountId}</a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Use cases */}
+      {signup.useCases && signup.useCases.length > 0 && (
+        <div className="mb-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1.5">Use Cases</p>
+          <div className="flex flex-wrap gap-1.5">
+            {signup.useCases.map((uc, i) => (
+              <span key={uc} className={`text-xs font-medium px-2 py-0.5 rounded-full border ${USE_CASE_COLORS[i % USE_CASE_COLORS.length]}`}>
+                {USE_CASE_LABELS[uc] || uc}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
-    </>
+
+      {/* Notes / Other use case */}
+      {(signup.useCaseOther || signup.notes) && (
+        <div className="mb-4 space-y-2">
+          {signup.useCaseOther && (
+            <div className="flex items-start gap-2">
+              <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Other Use Case</p>
+                <p className="text-sm text-foreground">{signup.useCaseOther}</p>
+              </div>
+            </div>
+          )}
+          {signup.notes && (
+            <div className="flex items-start gap-2">
+              <MessageSquare className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Notes</p>
+                <p className="text-sm text-foreground">{signup.notes}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-3 border-t border-border/50">
+        <select
+          value={signup.status}
+          onChange={(e) => {
+            const newStatus = e.target.value as SignupStatus;
+            if (newStatus === "approved") {
+              onApprove(signup);
+              e.target.value = signup.status;
+            } else {
+              onStatusChange(signup.signupId, newStatus);
+            }
+          }}
+          disabled={isUpdating}
+          className="bg-zinc-800 border border-border text-xs text-foreground rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+        >
+          {ALL_STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        {["new", "contacted"].includes(signup.status) && (
+          <button
+            onClick={() => onApprove(signup)}
+            disabled={isUpdating}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/30 transition-colors disabled:opacity-50"
+            title="Approve & provision new environment"
+          >
+            <CheckCircle className="w-3 h-3" />
+            Provision
+          </button>
+        )}
+        <button
+          onClick={() => onTemplateApprove(signup.signupId)}
+          disabled={isUpdating}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-blue-600/20 text-blue-400 border border-blue-500/20 hover:bg-blue-600/30 transition-colors disabled:opacity-50"
+          title="Generate CloudFormation template link"
+        >
+          <Download className="w-3 h-3" />
+          Template
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => { if (confirm(`Delete signup from ${signup.email}?`)) onDelete(signup.signupId); }}
+          disabled={isUpdating}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-red-600/20 text-red-400 border border-red-500/20 hover:bg-red-600/30 transition-colors disabled:opacity-50"
+          title="Delete this signup"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
   );
 }
 
 export function Signups() {
   const [filter, setFilter] = useState<string>("new");
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [approveTarget, setApproveTarget] = useState<Signup | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const queryClient = useQueryClient();
@@ -422,6 +421,7 @@ export function Signups() {
       setTimeout(() => setToast(null), 5000);
     },
   });
+
   const approveMutation = useMutation({
     mutationFn: (id: string) => signupsApi.approve(id),
     onSuccess: (_data, id) => {
@@ -440,11 +440,15 @@ export function Signups() {
   });
 
   const signups = signupsData?.signups || [];
-  const searched = search.trim() ? signups.filter((s) => {
+
+  // Sort by date (newest first)
+  const sorted = [...signups].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const searched = search.trim() ? sorted.filter((s) => {
     const q = search.toLowerCase();
     const name = s.fullName || [s.firstName, s.lastName].filter(Boolean).join(" ") || "";
     return name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.team || "").toLowerCase().includes(q);
-  }) : signups;
+  }) : sorted;
   const filtered = filter === "all" ? searched : searched.filter((s) => s.status === filter);
 
   const counts = {
@@ -476,7 +480,7 @@ export function Signups() {
           <div>
             <h1 className="text-xl font-bold text-foreground">Signups</h1>
             <p className="text-sm text-muted-foreground">
-              {signupsData?.total ?? 0} total signups
+              {signupsData?.total ?? 0} total signups · sorted by newest first
             </p>
           </div>
         </div>
@@ -493,6 +497,7 @@ export function Signups() {
           className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
         />
       </div>
+
       {/* Stats bar */}
       <div className="flex items-center gap-4 text-sm">
         {ALL_STATUSES.map((s) => {
@@ -527,7 +532,7 @@ export function Signups() {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Cards list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -538,41 +543,19 @@ export function Signups() {
           <p className="text-sm">No signups found</p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Access</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Use Cases</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Team Size</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Submitted</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((signup) => (
-                  <SignupRow
-                    key={signup.signupId}
-                    signup={signup}
-                    isExpanded={expandedId === signup.signupId}
-                    onToggle={() => setExpandedId(expandedId === signup.signupId ? null : signup.signupId)}
-                    onStatusChange={(id, status) => mutation.mutate({ id, status })}
-                    isUpdating={mutation.isPending && mutation.variables?.id === signup.signupId}
-                    onApprove={(s) => setApproveTarget(s)}
-                    onDelete={(id) => deleteMutation.mutate(id)}
-                    onTemplateApprove={(id) => templateMutation.mutate(id)}
-                    conflict={findEmailConflict(signup.email, environments)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="space-y-3">
+          {filtered.map((signup) => (
+            <SignupCard
+              key={signup.signupId}
+              signup={signup}
+              onStatusChange={(id, status) => mutation.mutate({ id, status })}
+              isUpdating={mutation.isPending && mutation.variables?.id === signup.signupId}
+              onApprove={(s) => setApproveTarget(s)}
+              onDelete={(id) => deleteMutation.mutate(id)}
+              onTemplateApprove={(id) => templateMutation.mutate(id)}
+              conflict={findEmailConflict(signup.email, environments)}
+            />
+          ))}
         </div>
       )}
 
