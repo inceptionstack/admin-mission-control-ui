@@ -147,7 +147,7 @@ function ApproveDialog({ signup, conflict, onConfirm, onCancel, isApproving }: {
   );
 }
 
-function SignupCard({ signup, onStatusChange, isUpdating, onApprove, onDelete, onTemplateApprove, conflict }: {
+function SignupCard({ signup, onStatusChange, isUpdating, onApprove, onDelete, onTemplateApprove, conflict, compact }: {
   signup: Signup;
   onStatusChange: (id: string, status: SignupStatus) => void;
   isUpdating: boolean;
@@ -155,13 +155,14 @@ function SignupCard({ signup, onStatusChange, isUpdating, onApprove, onDelete, o
   onDelete: (id: string) => void;
   onTemplateApprove: (id: string) => void;
   conflict: Environment | undefined;
+  compact?: boolean;
 }) {
   const fullName = signup.fullName || [signup.firstName, signup.lastName].filter(Boolean).join(" ") || "—";
   const alias = signup.alias || signup.email?.split("@")[0] || "";
   const slackUrl = alias ? `https://amazon.enterprise.slack.com/team/${alias}` : null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 hover:border-border/80 transition-colors">
+    <div className={compact ? "" : "bg-card border border-border rounded-xl p-5 hover:border-border/80 transition-colors"}>
       {/* Top row: name + status + time */}
       <div className="flex items-start justify-between gap-4 mb-4">
         <div className="flex items-center gap-3 min-w-0">
@@ -352,6 +353,7 @@ function SignupCard({ signup, onStatusChange, isUpdating, onApprove, onDelete, o
 export function Signups() {
   const [filter, setFilter] = useState<string>("new");
   const [search, setSearch] = useState("");
+  const [groupByEmail, setGroupByEmail] = useState(false);
   const [approveTarget, setApproveTarget] = useState<Signup | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const queryClient = useQueryClient();
@@ -512,24 +514,37 @@ export function Signups() {
         })}
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setFilter(tab.key)}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              filter === tab.key
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-            }`}
-          >
-            {tab.label}
-            <span className="ml-1.5 text-xs opacity-70">
-              {counts[tab.key as keyof typeof counts]}
-            </span>
-          </button>
-        ))}
+      {/* Filter tabs + group toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                filter === tab.key
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              {tab.label}
+              <span className="ml-1.5 text-xs opacity-70">
+                {counts[tab.key as keyof typeof counts]}
+              </span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setGroupByEmail(!groupByEmail)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border shrink-0 ${
+            groupByEmail
+              ? "bg-primary/10 text-primary border-primary/20"
+              : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-accent"
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          Group by email
+        </button>
       </div>
 
       {/* Cards list */}
@@ -542,6 +557,71 @@ export function Signups() {
           <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm">No signups found</p>
         </div>
+      ) : groupByEmail ? (
+        // Grouped by email view
+        (() => {
+          const groups = new Map<string, Signup[]>();
+          for (const s of filtered) {
+            const key = s.email.toLowerCase();
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(s);
+          }
+          // Sort groups by most recent signup
+          const sortedGroups = [...groups.entries()].sort(
+            (a, b) => new Date(b[1][0].createdAt).getTime() - new Date(a[1][0].createdAt).getTime()
+          );
+          return (
+            <div className="space-y-6">
+              {sortedGroups.map(([email, groupSignups]) => {
+                const latest = groupSignups[0];
+                const alias = latest.alias || email.split("@")[0];
+                const slackUrl = `https://amazon.enterprise.slack.com/team/${alias}`;
+                return (
+                  <div key={email} className="border border-border rounded-xl overflow-hidden">
+                    {/* Group header */}
+                    <div className="bg-card/80 border-b border-border px-5 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 border border-primary/20 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold text-primary">
+                            {(latest.fullName || email).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-foreground">{latest.fullName || email}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{email}</span>
+                            <span>·</span>
+                            <a href={slackUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">@{alias}</a>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground bg-accent/50 px-2 py-0.5 rounded-full">
+                        {groupSignups.length} signup{groupSignups.length > 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    {/* Cards within group */}
+                    <div className="divide-y divide-border/50">
+                      {groupSignups.map((signup) => (
+                        <div key={signup.signupId} className="p-5">
+                          <SignupCard
+                            signup={signup}
+                            compact
+                            onStatusChange={(id, status) => mutation.mutate({ id, status })}
+                            isUpdating={mutation.isPending && mutation.variables?.id === signup.signupId}
+                            onApprove={(s) => setApproveTarget(s)}
+                            onDelete={(id) => deleteMutation.mutate(id)}
+                            onTemplateApprove={(id) => templateMutation.mutate(id)}
+                            conflict={findEmailConflict(signup.email, environments)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
       ) : (
         <div className="space-y-3">
           {filtered.map((signup) => (
