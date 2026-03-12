@@ -141,3 +141,4 @@ Set `AUTH_PROVIDER=cognito` and provide `COGNITO_POOL_ID`, `COGNITO_CLIENT_ID`, 
 
 ### Generic OIDC (Auth0, Okta, Keycloak)
 Set `AUTH_PROVIDER=oidc` and provide `OIDC_AUTHORITY` (issuer URL) and `OIDC_CLIENT_ID`. Uses `oidc-client-ts` with authorization code + PKCE flow.
+<!-- webhook test 2026-03-12T00:46:09Z -->
